@@ -1,20 +1,15 @@
 import asyncio
-import websockets
-import webbrowser
 import logging
+import webbrowser
 
+import websockets
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-chrome_path = r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
-webbrowser.register(''
-                    'c',
-                    None,
-                    webbrowser.BackgroundBrowser(chrome_path)
-                    )
+chrome_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+webbrowser.register("" "c", None, webbrowser.BackgroundBrowser(chrome_path))
 
 
 async def receive_links(url: str) -> None:
@@ -32,23 +27,21 @@ async def receive_links(url: str) -> None:
         try:
             logging.info("Attempting to connect to %s", url)
             async with websockets.connect(
-                    url,
-                    ping_interval=20,
-                    ping_timeout=60
+                url, ping_interval=20, ping_timeout=60
             ) as websocket:
                 logging.info("Connected to %s", url)
                 while True:
                     try:
                         link = await websocket.recv()
                         logging.info("Received link from %s: %s", url, link)
-                        webbrowser.get('c').open(link)
+                        webbrowser.get("c").open(link)
 
                     except websockets.exceptions.ConnectionClosed:
                         logging.warning("Connection to %s closed. Reconnecting...", url)
                         break
 
                     except Exception as e:
-                        logging.error(f"Error receiving data: %s", e)
+                        logging.error("Error receiving data: %s", e)
                         break
 
         except Exception as e:

@@ -1,40 +1,44 @@
 import asyncio
+import json
 import logging
 import random
 import time
-import json
+from collections import deque
 from typing import Any
 from urllib.parse import urlencode
-from collections import deque
-from fake_useragent import UserAgent
+
 import websockets
+from fake_useragent import UserAgent
 from playwright.async_api import async_playwright
-from parameter import (
-    api_params_1, api_params_2,
-    api_params_3, api_params_4,
-    api_params_5, api_params_6,
-    web_params_1, web_params_2,
-    web_params_3, web_params_4,
-    web_params_5, web_params_6,
-)
+
 from config import (
-    PROXY_USER,
+    LAST_ITEMS_MAX_SIZE,
+    MAX_RETRIES,
     PROXY_PASS,
     PROXY_PORT,
-    LAST_ITEMS_MAX_SIZE,
+    PROXY_USER,
     REQUEST_TIMEOUT,
-    MAX_RETRIES,
     USER_AGENT_ROTATION_INTERVAL,
 )
-
+from parameter import (
+    api_params_1,
+    api_params_2,
+    api_params_3,
+    api_params_4,
+    api_params_5,
+    api_params_6,
+    web_params_1,
+    web_params_2,
+    web_params_3,
+    web_params_4,
+    web_params_5,
+    web_params_6,
+)
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('error_code.txt'),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("error_code.txt"), logging.StreamHandler()],
 )
 
 
@@ -47,26 +51,31 @@ class AntiDetectionSystem:
     - Генерации случайных параметров браузера
     (разрешение, таймзона, локаль)
     """
+
     def __init__(self):
         self.ua = UserAgent()
         self.request_counter: int = 0
         self.current_user_agent = self.ua.random
-        self.proxy_hosts: list[str] = ['',]
+        self.proxy_hosts: list[str] = [
+            "",
+        ]
         self.proxy_rotation_index: int = 0
         self.common_resolutions: list[dict] = [
             {"width": 1920, "height": 1080},
             {"width": 1366, "height": 768},
             {"width": 1440, "height": 900},
-            {"width": 1536, "height": 864}
+            {"width": 1536, "height": 864},
         ]
         self.timezones: list[str] = [
-            "America/New_York", "Europe/Paris",
-            "Asia/Tokyo", "Australia/Sydney"
+            "America/New_York",
+            "Europe/Paris",
+            "Asia/Tokyo",
+            "Australia/Sydney",
         ]
         self.locales: list[str] = [
             "en-US,en;q=0.9",
             "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-            "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"
+            "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
         ]
 
     def get_random_viewport(self):
@@ -85,15 +94,14 @@ class AntiDetectionSystem:
         """Меняет User-Agent на случайный"""
         self.current_user_agent = self.ua.random
         self.request_counter: int = 0
-        logging.info(
-            "Rotated User-Agent to: %s",
-            self.current_user_agent
-        )
+        logging.info("Rotated User-Agent to: %s", self.current_user_agent)
 
     def get_next_proxy(self):
         """Возвращает следующий прокси из списка (ротация)"""
         proxy: str = self.proxy_hosts[self.proxy_rotation_index]
-        self.proxy_rotation_index = (self.proxy_rotation_index + 1) % len(self.proxy_hosts)
+        self.proxy_rotation_index = (self.proxy_rotation_index + 1) % len(
+            self.proxy_hosts
+        )
         return proxy
 
 
@@ -106,6 +114,7 @@ class Parser:
     - Обработку и фильтрацию URL
     - Распределенную работу через несколько воркеров
     """
+
     def __init__(self):
         self.ads = AntiDetectionSystem()
         self.urls_set: set = set()
@@ -133,10 +142,7 @@ class Parser:
     async def handle_client(self, websocket, path=None):
         """Обрабатывает подключение WebSocket-клиента"""
         self.connected_clients.add(websocket)
-        logging.info(
-            "Client connected: %s",
-            websocket.remote_address
-        )
+        logging.info("Client connected: %s", websocket.remote_address)
         try:
             async for message in websocket:
                 logging.info("Received message: %s", message)
@@ -144,15 +150,15 @@ class Parser:
             logging.error("Client connection error: %s", e)
         finally:
             self.connected_clients.remove(websocket)
-            logging.info(f"Client disconnected: {websocket.remote_address}")
+            logging.info(
+                "Client disconnected: ",
+                websocket.remote_address
+            )
 
-    async def start_websocket_server(self, host='0.0.0.0', port=3454):
+    async def start_websocket_server(self, host="0.0.0.0", port=3454):
         """Запускает WebSocket-сервер"""
         server = await websockets.serve(self.handle_client, host, port)
-        logging.info(
-            "WebSocket server started at %s:%s",
-            host, port
-        )
+        logging.info("WebSocket server started at %s:%s", host, port)
         await server.wait_closed()
 
     async def fetch_api_data(self, site_url, api_url):
@@ -162,7 +168,7 @@ class Parser:
             proxy: dict = {
                 "server": f"http://{proxy_host}:{PROXY_PORT}",
                 "username": PROXY_USER,
-                "password": PROXY_PASS
+                "password": PROXY_PASS,
             }
             try:
                 async with async_playwright() as p:
@@ -176,8 +182,8 @@ class Parser:
                             "--no-sandbox",
                             "--disable-setuid-sandbox",
                             "--disable-dev-shm-usage",
-                            f"--user-agent={self.ads.current_user_agent}"
-                        ]
+                            f"--user-agent={self.ads.current_user_agent}",
+                        ],
                     )
 
                     try:
@@ -191,10 +197,11 @@ class Parser:
                             geolocation=None,
                             has_touch=False,
                             http_credentials=None,
-                            color_scheme="light"
+                            color_scheme="light",
                         )
 
-                        await context.add_init_script("""
+                        await context.add_init_script(
+                            """
                                                 Object.defineProperty(navigator, 'webdriver', {
                                                     get: () => false,
                                                 });
@@ -248,10 +255,15 @@ class Parser:
                                                         },
                                                     },
                                                 };
-                                            """)
+                                            """
+                        )
 
                         page = await context.new_page()
-                        await page.goto(site_url, wait_until="domcontentloaded", timeout=REQUEST_TIMEOUT)
+                        await page.goto(
+                            site_url,
+                            wait_until="domcontentloaded",
+                            timeout=REQUEST_TIMEOUT,
+                        )
                         await asyncio.sleep(random.uniform(10, 15))
 
                         async with context.expect_page() as new_page:
@@ -268,8 +280,7 @@ class Parser:
                         return body_text
                     except Exception as e:
                         logging.warning(
-                            "Attempt %s proxy=%s failed: %s",
-                            attempt + 1, proxy_host, e
+                            "Attempt %s proxy=%s failed: %s", attempt + 1, proxy_host, e
                         )
                     finally:
                         await browser.close()
@@ -278,10 +289,7 @@ class Parser:
                     delay = random.uniform(1, 3)
                     await asyncio.sleep(delay)
                 else:
-                    logging.error(
-                        "All attempts failed for %s",
-                        api_url
-                    )
+                    logging.error("All attempts failed for %s", api_url)
                     return None
 
     async def add_url(self, url: str):
@@ -307,7 +315,9 @@ class Parser:
                 web_params["time"]: str = ts
 
                 web_url: str = f"https://www.vinted.it/catalog?{urlencode(web_params)}"
-                api_url: str = f"https://www.vinted.it/api/v2/catalog/items?{urlencode(api_params)}"
+                api_url: str = (
+                    f"https://www.vinted.it/api/v2/catalog/items?{urlencode(api_params)}"
+                )
 
                 data = await self.fetch_api_data(web_url, api_url)
                 if not data:
@@ -324,9 +334,11 @@ class Parser:
                 for item in data_json.get("items", [])[:5]:
                     try:
                         url: str = item.get("url")
-                        ts_item = (item.get("photo", {})
-                                   .get("high_resolution", {})
-                                   .get("timestamp", 0))
+                        ts_item = (
+                            item.get("photo", {})
+                            .get("high_resolution", {})
+                            .get("timestamp", 0)
+                        )
 
                         if await self.add_url(url):
                             if self.last_items.full():
