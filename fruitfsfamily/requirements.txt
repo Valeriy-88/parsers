@@ -1,0 +1,10 @@
+certifi==2025.1.31
+charset-normalizer==3.4.1
+idna==3.10
+mypy==1.15.0
+mypy-extensions==1.0.0
+pyTelegramBotAPI==4.26.0
+requests==2.32.4
+telebot==0.0.5
+typing_extensions==4.12.2
+urllib3==2.5.0
